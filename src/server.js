@@ -29,12 +29,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// API Routes (to be added)
-// app.use('/api/auth', require('./routes/auth.routes'));
-// app.use('/api/users', require('./routes/user.routes'));
-// app.use('/api/doctors', require('./routes/doctor.routes'));
-// app.use('/api/appointments', require('./routes/appointment.routes'));
-// app.use('/api/payments', require('./routes/payment.routes'));
+// API Routes
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/users', require('./routes/user.routes'));
+app.use('/api/doctors', require('./routes/doctor.routes'));
+app.use('/api/appointments', require('./routes/appointment.routes'));
+app.use('/api/medical-records', require('./routes/medical-record.routes'));
+app.use('/api/reviews', require('./routes/review.routes'));
+app.use('/api/admin', require('./routes/admin.routes'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
