@@ -24,7 +24,21 @@ const generateToken = (userId) => {
  */
 const register = async (req, res) => {
     try {
-        const { email, password, role = 'PATIENT', firstName, lastName, phone } = req.body;
+        const { 
+            email, 
+            password, 
+            role = 'PATIENT', 
+            firstName, 
+            lastName, 
+            phone,
+            // Doctor-specific fields
+            specializationId,
+            qualification,
+            experienceYears,
+            licenseNumber,
+            consultationFee,
+            about
+        } = req.body;
 
         // Check if user already exists
         const existingUser = await prisma.user.findUnique({
@@ -61,6 +75,28 @@ const register = async (req, res) => {
                 },
             });
 
+            // If role is DOCTOR, automatically create doctor profile
+            if (role === 'DOCTOR') {
+                // Validate required doctor fields
+                if (!specializationId || !qualification || !experienceYears || !licenseNumber || !consultationFee) {
+                    throw new Error('Doctor registration requires specialization, qualification, experience, license number, and consultation fee');
+                }
+
+                await tx.doctor.create({
+                    data: {
+                        userId: newUser.id,
+                        specializationId,
+                        qualification: Array.isArray(qualification) ? qualification : [qualification],
+                        experienceYears: parseInt(experienceYears),
+                        licenseNumber,
+                        consultationFee: parseFloat(consultationFee),
+                        about: about || '',
+                        verificationStatus: 'pending', // Doctors start as pending verification
+                        isAvailable: false, // Doctors start as unavailable until verified
+                    },
+                });
+            }
+
             // Store verification token (you might want to create a separate table for tokens)
             // For now, we'll send it directly
             return newUser;
@@ -71,6 +107,10 @@ const register = async (req, res) => {
 
         // Generate JWT token
         const token = generateToken(user.id);
+
+        const responseMessage = role === 'DOCTOR' 
+            ? 'Doctor registration successful. Your profile is pending verification. Please check your email to verify your account.'
+            : 'Registration successful. Please check your email to verify your account.';
 
         return successResponse(
             res,
@@ -83,11 +123,17 @@ const register = async (req, res) => {
                 },
                 token,
             },
-            'Registration successful. Please check your email to verify your account.',
+            responseMessage,
             201
         );
     } catch (error) {
         console.error('Registration error:', error);
+        
+        // Provide specific error messages for doctor registration
+        if (error.message.includes('Doctor registration requires')) {
+            return errorResponse(res, error.message, 400);
+        }
+        
         return errorResponse(res, 'Registration failed', 500);
     }
 };

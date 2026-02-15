@@ -12,6 +12,7 @@ const getDoctors = async (req, res) => {
             city,
             minRating,
             maxFee,
+            minExperience,
             search,
             page = 1,
             limit = 10,
@@ -29,7 +30,13 @@ const getDoctors = async (req, res) => {
         };
 
         if (specialization) {
-            where.specializationId = specialization;
+            // Handle multiple specializations (comma-separated)
+            const specializations = specialization.split(',');
+            if (specializations.length === 1) {
+                where.specializationId = specialization;
+            } else {
+                where.specializationId = { in: specializations };
+            }
         }
 
         if (minRating) {
@@ -40,16 +47,27 @@ const getDoctors = async (req, res) => {
             where.consultationFee = { lte: parseFloat(maxFee) };
         }
 
-        // Search in user profile
+        if (minExperience) {
+            where.experienceYears = { gte: parseInt(minExperience) };
+        }
+
+        // Search in user profile and specialization
         if (search) {
-            where.user = {
-                profile: {
-                    OR: [
-                        { firstName: { contains: search, mode: 'insensitive' } },
-                        { lastName: { contains: search, mode: 'insensitive' } },
-                    ],
+            where.OR = [
+                {
+                    user: {
+                        profile: {
+                            OR: [
+                                { firstName: { contains: search, mode: 'insensitive' } },
+                                { lastName: { contains: search, mode: 'insensitive' } },
+                            ],
+                        },
+                    },
                 },
-            };
+                {
+                    specializationId: { contains: search, mode: 'insensitive' },
+                },
+            ];
         }
 
         // City filter
@@ -360,6 +378,47 @@ const setAvailability = async (req, res) => {
     }
 };
 
+/**
+ * Verify doctor (Admin only)
+ * POST /api/doctors/:id/verify
+ */
+const verifyDoctor = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const doctor = await prisma.doctor.findUnique({
+            where: { id },
+        });
+
+        if (!doctor) {
+            return errorResponse(res, 'Doctor not found', 404);
+        }
+
+        const updatedDoctor = await prisma.doctor.update({
+            where: { id },
+            data: {
+                verificationStatus: 'verified',
+                isAvailable: true,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        profile: true,
+                    },
+                },
+                clinics: true,
+            },
+        });
+
+        return successResponse(res, updatedDoctor, 'Doctor verified successfully');
+    } catch (error) {
+        console.error('Verify doctor error:', error);
+        return errorResponse(res, 'Failed to verify doctor', 500);
+    }
+};
+
 module.exports = {
     getDoctors,
     getDoctorById,
@@ -367,4 +426,5 @@ module.exports = {
     updateDoctorProfile,
     addClinic,
     setAvailability,
+    verifyDoctor,
 };

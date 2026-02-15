@@ -46,4 +46,11 @@ router.post('/clinic', verifyToken, requireRole('DOCTOR'), doctorController.addC
  */
 router.post('/availability', verifyToken, requireRole('DOCTOR'), doctorController.setAvailability);
 
+/**
+ * @route   POST /api/doctors/:id/verify
+ * @desc    Verify doctor (Admin only)
+ * @access  Private (ADMIN role)
+ */
+router.post('/:id/verify', verifyToken, requireRole('ADMIN'), doctorController.verifyDoctor);
+
 module.exports = router;
